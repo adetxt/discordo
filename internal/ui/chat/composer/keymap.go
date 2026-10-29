@@ -32,6 +32,9 @@ func (m Model) ShortHelp() []keybind.Keybind {
 	if m.canAttachFiles() {
 		short = append(short, cfg.OpenFilePicker.Keybind)
 	}
+	if m.editing == nil {
+		short = append(short, cfg.OpenStickerPicker.Keybind)
+	}
 	return short
 }
 
@@ -50,6 +53,9 @@ func (m Model) FullHelp() [][]keybind.Keybind {
 
 	if m.canAttachFiles() {
 		openEditor = append(openEditor, cfg.OpenFilePicker.Keybind)
+	}
+	if m.editing == nil {
+		openEditor = append(openEditor, cfg.OpenStickerPicker.Keybind)
 	}
 
 	compose := []keybind.Keybind{cfg.Send.Keybind, cfg.Newline.Keybind, cfg.Cancel.Keybind, cfg.Undo.Keybind}

@@ -1032,6 +1032,12 @@ Default: `"ctrl+e"`
 
 Default: `"ctrl+\\"`
 
+### keybinds.composer.open_sticker_picker
+
+Pick a sticker to send as a message of its own, replying if a reply is in progress.
+
+Default: `"ctrl+o"`
+
 ### keybinds.composer.cursor_left
 
 Move the cursor. Readline's keys, with shift added to those other keybinds take.

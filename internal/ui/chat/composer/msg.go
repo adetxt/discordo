@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/ayn2op/arikawa/v3/api"
 	"github.com/ayn2op/arikawa/v3/discord"
 	"github.com/ayn2op/arikawa/v3/gateway"
+	"github.com/ayn2op/arikawa/v3/utils/httputil"
 	"github.com/ayn2op/arikawa/v3/utils/json/option"
 	"github.com/ayn2op/arikawa/v3/utils/sendpart"
 	"github.com/ayn2op/discordo/internal/config"
@@ -31,6 +33,11 @@ type EditLastMsg struct{}
 
 // SentMsg reports that the composer sent a message.
 type SentMsg struct{}
+
+// ShowStickersMsg asks to pick a sticker to send in GuildID.
+type ShowStickersMsg struct {
+	GuildID discord.GuildID
+}
 
 type editorMsg string
 
@@ -147,6 +154,42 @@ func (m *Model) sendTyping() tview.Cmd {
 		}
 		return nil
 	}
+}
+
+// showStickers returns the command that asks to pick a sticker, or nil if the composer is editing a message, as a sticker is sent as a new one.
+func (m Model) showStickers() tview.Cmd {
+	if m.channel == nil || m.editing != nil {
+		return nil
+	}
+
+	guildID := m.channel.GuildID
+	return func() tview.Msg { return ShowStickersMsg{GuildID: guildID} }
+}
+
+// SendSticker sends the sticker with id as its own message, replying if the composer is. The text and attachments stay.
+func (m *Model) SendSticker(id discord.StickerID) tview.Cmd {
+	selectedChannel := m.channel
+	if selectedChannel == nil {
+		return nil
+	}
+
+	// arikawa cannot send stickers.
+	body := struct {
+		StickerIDs      []discord.StickerID       `json:"sticker_ids"`
+		AllowedMentions *api.AllowedMentions      `json:"allowed_mentions,omitempty"`
+		Reference       *discord.MessageReference `json:"message_reference,omitempty"`
+	}{[]discord.StickerID{id}, m.sendMessageData.AllowedMentions, m.sendMessageData.Reference}
+	m.sendMessageData.Reference, m.sendMessageData.AllowedMentions = nil, nil
+
+	channelID := selectedChannel.ID
+	sent := func() tview.Msg { return SentMsg{} }
+	return tview.Batch(sent, func() tview.Msg {
+		url := api.EndpointChannels + channelID.String() + "/messages"
+		if err := m.state.RequestJSONInto(nil, http.MethodPost, url, httputil.WithJSONBody(body)); err != nil {
+			slog.Error("failed to send sticker in channel", "channel_id", channelID, "sticker_id", id, "err", err)
+		}
+		return nil
+	})
 }
 
 func (m *Model) send() tview.Cmd {

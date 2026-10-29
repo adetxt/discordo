@@ -299,6 +299,11 @@ func (m Model) itemView(item *messageItem) tview.Widget {
 			body = body.Push(preview)
 		}
 	}
+	for _, sticker := range message.Stickers {
+		if image, ok := m.images[stickerURL(sticker)]; ok {
+			body = body.Push(image)
+		}
+	}
 
 	if m.cfg.UI.MessagesList.Reactions.Enabled && !m.blocked(message.Author) {
 		body = body.Push(m.reactionsView(message.Reactions))
