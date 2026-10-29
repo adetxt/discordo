@@ -59,6 +59,8 @@ func (m Model) selectNode(node *tree.Node) tview.Cmd {
 	case discord.GuildID:
 		m.expandGuild(node, ref)
 	case discord.ChannelID:
+		// A channel is not expanded or collapsed by selecting it, so this is how its threads come back after being collapsed.
+		node.Expand()
 		return m.selectChannel(node, ref)
 	case dmNode:
 		m.expandPrivateChannels(node)
@@ -105,7 +107,7 @@ func (m Model) expandForum(node *tree.Node, forum discord.Channel) {
 	}
 
 	for _, child := range channels {
-		if child.ParentID == forum.ID && isThread(child.Type) {
+		if child.ParentID == forum.ID && isThread(child.Type) && !isInactive(child) {
 			m.createChannelNode(node, child)
 		}
 	}
