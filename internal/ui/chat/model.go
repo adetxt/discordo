@@ -28,6 +28,7 @@ import (
 	"github.com/ayn2op/discordo/internal/ui/chat/memberstree"
 	"github.com/ayn2op/discordo/internal/ui/chat/messageslist"
 	"github.com/ayn2op/discordo/internal/ui/chat/reactionspicker"
+	"github.com/ayn2op/discordo/internal/ui/chat/stickerspicker"
 	"github.com/ayn2op/discordo/internal/ui/images"
 	"github.com/ayn2op/ningen/v3"
 	"github.com/ayn2op/tview"
@@ -61,6 +62,8 @@ type Model struct {
 	attachmentsPicker attachmentspicker.Model
 	// reactionsPicker picks an emoji to react to the selected message with.
 	reactionsPicker reactionspicker.Model
+	// stickersPicker picks a sticker to send.
+	stickersPicker stickerspicker.Model
 
 	selectedChannel *discord.Channel
 	// windowUnfocused reports whether the terminal window lost focus.
@@ -124,6 +127,7 @@ func NewModel(cfg *config.Config, token string) Model {
 	m.channelsPicker = channelspicker.NewModel(cfg)
 	m.attachmentsPicker = attachmentspicker.NewModel(cfg)
 	m.reactionsPicker = reactionspicker.NewModel(cfg, m.state)
+	m.stickersPicker = stickerspicker.NewModel(cfg, m.state)
 
 	m.guildsTreeVisible = cfg.Sidebar.Visible
 	m.membersTreeVisible = cfg.MembersTree.Visible
@@ -145,6 +149,7 @@ const (
 	overlayChannelsPicker
 	overlayAttachmentsPicker
 	overlayReactionsPicker
+	overlayStickersPicker
 )
 
 // pickerView returns the view of the picker shown on top, or nil if none is open.
@@ -156,6 +161,8 @@ func (m Model) pickerView() tview.Widget {
 		return m.attachmentsPicker.View()
 	case overlayReactionsPicker:
 		return m.reactionsPicker.View()
+	case overlayStickersPicker:
+		return m.stickersPicker.View()
 	default:
 		return nil
 	}
@@ -309,6 +316,17 @@ func (m Model) update(msg tview.Msg) (Model, tview.Cmd) {
 	case reactionspicker.CancelMsg:
 		m.overlay = overlayNone
 		return m, nil
+	case composer.ShowStickersMsg:
+		m.overlay = overlayStickersPicker
+		var cmd tview.Cmd
+		m.stickersPicker, cmd = m.stickersPicker.Update(stickerspicker.ShowMsg(msg))
+		return m, cmd
+	case stickerspicker.SelectedMsg:
+		m.overlay = overlayNone
+		return m, m.composer.SendSticker(msg.StickerID)
+	case stickerspicker.CancelMsg:
+		m.overlay = overlayNone
+		return m, nil
 	case messageslist.ReplyMsg:
 		m.composer.StartReply(msg.Message, msg.Name, msg.Mention)
 		m.setFocus(paneComposer)
@@ -394,6 +412,8 @@ func (m *Model) route(msg tview.Msg) tview.Cmd {
 		m.attachmentsPicker, cmd = m.attachmentsPicker.Update(msg)
 	case overlayReactionsPicker:
 		m.reactionsPicker, cmd = m.reactionsPicker.Update(msg)
+	case overlayStickersPicker:
+		m.stickersPicker, cmd = m.stickersPicker.Update(msg)
 	default:
 		cmd = m.updatePane(m.focused, msg)
 	}

@@ -3,11 +3,13 @@ package messageslist
 import (
 	"image"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ayn2op/arikawa/v3/discord"
 	"github.com/ayn2op/discordo/internal/ui/emojis"
 	"github.com/ayn2op/discordo/internal/ui/images"
+	"github.com/ayn2op/tview"
 	tviewimage "github.com/ayn2op/tview/image"
 )
 
@@ -86,4 +88,58 @@ func TestModelLoadImages(t *testing.T) {
 			t.Fatal("the parsed content was not kept for rendering")
 		}
 	})
+}
+
+func TestModelLoadImagesStickers(t *testing.T) {
+	message := discord.Message{ID: 2, ChannelID: 1, Stickers: []discord.StickerItem{
+		{ID: 10, Name: "png", FormatType: discord.StickerFormatPNG},
+		{ID: 11, Name: "apng", FormatType: discord.StickerFormatAPNG},
+		{ID: 12, Name: "lottie", FormatType: discord.StickerFormatLottie},
+		{ID: 13, Name: "gif", FormatType: stickerFormatGIF},
+	}}
+	for _, tt := range []struct {
+		name    string
+		preview bool
+		want    []discord.URL
+	}{
+		{"preview", true, []discord.URL{
+			"https://cdn.discordapp.com/stickers/10.png",
+			"https://cdn.discordapp.com/stickers/11.png",
+			"https://cdn.discordapp.com/stickers/13.gif",
+		}},
+		{"no preview", false, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ml := newTestModel(t, testConfig(t))
+			ml.cfg.UI.MessagesList.Attachments.Preview = tt.preview
+			ml.cfg.UI.MessagesList.Avatars.Preview = false
+			ml.setMessages([]discord.Message{message})
+
+			var got []discord.URL
+			if cmd := ml.LoadImages(); cmd != nil {
+				for url, rows := range cmd().(images.RequestedMsg).Squares {
+					if rows != stickerRows {
+						t.Fatalf("%s was asked for %d rows tall, want %d", url, rows, stickerRows)
+					}
+					got = append(got, url)
+				}
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("asked for %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestModelDrawStickers(t *testing.T) {
+	ml := newTestModel(t, testConfig(t))
+	message := discord.Message{ID: 2, ChannelID: 1, Stickers: []discord.StickerItem{{ID: 12, Name: "wave", FormatType: discord.StickerFormatLottie}}}
+	var got string
+	for _, span := range ml.renderMessage(message, nil, tview.Style{}, false) {
+		got += span.Text
+	}
+	if !strings.Contains(got, "Sticker: wave") {
+		t.Fatalf("rendered %q, want it to name the sticker", got)
+	}
 }

@@ -63,6 +63,11 @@ func (m Model) LoadImages() tview.Cmd {
 		for _, source := range m.previewSources(item.message) {
 			msg.Previews[source.proxy] = image.Pt(int(source.width), int(source.height))
 		}
+		for _, sticker := range item.message.Stickers {
+			if url := stickerURL(sticker); url != "" {
+				msg.Squares[url] = stickerRows
+			}
+		}
 	}
 
 	if len(msg.Squares) == 0 && len(msg.Previews) == 0 {

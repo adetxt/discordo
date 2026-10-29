@@ -178,6 +178,8 @@ type ComposerKeybinds struct {
 
 	OpenEditor     Keybind `toml:"open_editor"`
 	OpenFilePicker Keybind `toml:"open_file_picker"`
+	// Pick a sticker to send as a message of its own, replying if a reply is in progress.
+	OpenStickerPicker Keybind `toml:"open_sticker_picker"`
 
 	// Move the cursor. Readline's keys, with shift added to those other keybinds take.
 	// Shift with ctrl is told apart from ctrl alone only in terminals with an enhanced keyboard protocol, such as kitty's.
@@ -353,8 +355,9 @@ func defaultKeybinds() Keybinds {
 			ToggleReplyMention: key("toggle @reply", "shift+tab"),
 			Undo:               key("undo", "ctrl+u"),
 
-			OpenEditor:     key("editor", "ctrl+e"),
-			OpenFilePicker: key("attach", "ctrl+\\"),
+			OpenEditor:        key("editor", "ctrl+e"),
+			OpenFilePicker:    key("attach", "ctrl+\\"),
+			OpenStickerPicker: key("sticker", "ctrl+o"),
 
 			CursorLeft:  key("left", "ctrl+b"),
 			CursorRight: key("right", "ctrl+f"),

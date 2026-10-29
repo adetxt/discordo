@@ -182,6 +182,7 @@ func (m Model) isBound(key tview.KeyMsg) bool {
 		keybinds.Send.Keybind,
 		keybinds.OpenEditor.Keybind,
 		keybinds.OpenFilePicker.Keybind,
+		keybinds.OpenStickerPicker.Keybind,
 		keybinds.Cancel.Keybind,
 		keybinds.TabComplete.Keybind,
 		keybinds.ToggleReplyMention.Keybind,
@@ -562,6 +563,8 @@ func (m Model) Update(msg tview.Msg) (Model, tview.Cmd) {
 			return m, tview.Batch(m.showCompletions("", nil), m.openEditor())
 		case keybind.Matches(msg, keybinds.OpenFilePicker.Keybind):
 			return m, tview.Batch(m.showCompletions("", nil), m.pickFiles())
+		case keybind.Matches(msg, keybinds.OpenStickerPicker.Keybind):
+			return m, tview.Batch(m.showCompletions("", nil), m.showStickers())
 		case keybind.Matches(msg, keybinds.Cancel.Keybind):
 			if m.autocomplete.Visible() {
 				return m, m.showCompletions("", nil)

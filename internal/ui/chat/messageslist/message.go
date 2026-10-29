@@ -310,6 +310,8 @@ func (m Model) drawDefaultMessage(builder *markdown.Builder, message discord.Mes
 		builder.NewLine()
 		builder.Write(attachment.URL, attachmentStyle.Url(attachment.URL))
 	}
+
+	drawStickers(builder, message, attachmentStyle)
 }
 
 func (m Model) drawForwardedMessage(builder *markdown.Builder, message discord.Message, baseStyle tview.Style, grouped bool) {
