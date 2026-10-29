@@ -448,9 +448,19 @@ func voiceCmd(what string, action func() error) tview.Cmd {
 	}
 }
 
-// expandable reports whether selecting node expands or collapses it, which the members of a voice channel do not make it.
+// expandable reports whether selecting node expands or collapses it, which the members of a voice channel and the threads of a text channel do not make it: selecting those channels opens them.
 func (m Model) expandable(node *tree.Node) bool {
-	return len(node.Children()) > 0 && m.voiceChannel(node) == nil
+	if len(node.Children()) == 0 {
+		return false
+	}
+
+	channelID, ok := node.Reference().(discord.ChannelID)
+	if !ok {
+		return true
+	}
+
+	channel, err := m.state.Cabinet.Channel(channelID)
+	return err == nil && (channel.Type == discord.GuildCategory || channel.Type == discord.GuildForum)
 }
 
 func isVoice(channelType discord.ChannelType) bool {
@@ -517,9 +527,13 @@ func (m Model) createChannelNodes(node *tree.Node, channels []discord.Channel) {
 	//
 	// We precompute parent presence once to avoid the O(n^2) category-child scan.
 	hasChildByParentID := make(map[discord.ChannelID]struct{}, len(channels))
+	forums := make(map[discord.ChannelID]struct{})
 	for _, channel := range channels {
 		if channel.ParentID.IsValid() {
 			hasChildByParentID[channel.ParentID] = struct{}{}
+		}
+		if channel.Type == discord.GuildForum {
+			forums[channel.ID] = struct{}{}
 		}
 	}
 
@@ -535,16 +549,45 @@ func (m Model) createChannelNodes(node *tree.Node, channels []discord.Channel) {
 		}
 	}
 
-	for _, channel := range channels {
-		if !channel.ParentID.IsValid() {
-			continue
-		}
+	// Threads come after the channels they are in: they have no position, so they are sorted before those, which have to be in the tree by then.
+	// The threads of a forum are added when the forum is selected. Inactive threads are left out.
+	for _, thread := range []bool{false, true} {
+		for _, channel := range channels {
+			if !channel.ParentID.IsValid() || isThread(channel.Type) != thread {
+				continue
+			}
 
-		// Parent categories are inserted earlier in this function, so this lookup is O(1) and avoids per-channel subtree walks.
-		if parent := m.nodes[discord.Snowflake(channel.ParentID)]; parent != nil {
+			// Parent categories are inserted earlier in this function, so this lookup is O(1) and avoids per-channel subtree walks.
+			parent := m.nodes[discord.Snowflake(channel.ParentID)]
+			if parent == nil {
+				continue
+			}
+			if thread && isInactive(channel) {
+				continue
+			}
+			if _, inForum := forums[channel.ParentID]; thread && inForum {
+				continue
+			}
 			m.createChannelNode(parent, channel)
 		}
 	}
+}
+
+// threadInactivity is how long a thread can go without a message before it is left out of the tree.
+const threadInactivity = 24 * time.Hour
+
+// isInactive reports whether channel is a thread that has been archived, which is also how a thread expires, or that has had no message for threadInactivity.
+func isInactive(channel discord.Channel) bool {
+	if channel.ThreadMetadata != nil && channel.ThreadMetadata.Archived {
+		return true
+	}
+
+	// A thread with no message is as old as the thread.
+	lastActivity := discord.Snowflake(channel.ID)
+	if channel.LastMessageID.IsValid() {
+		lastActivity = discord.Snowflake(channel.LastMessageID)
+	}
+	return time.Since(lastActivity.Time()) > threadInactivity
 }
 
 func isThread(channelType discord.ChannelType) bool {
